@@ -1,0 +1,104 @@
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/cdev.h>
+#include <linux/fs.h>
+#include <linux/types.h>
+#include <linux/slab.h>
+#include <linux/errno.h>
+#include <linux/fcntl.h>
+#include <linux/wait.h>
+#include <linux/spinlock.h>
+#include <linux/device.h>
+
+#include <asm/atomic.h>
+#include <asm/uaccess.h>
+
+#define READWRITE_BUFSIZE	16
+#define DEFAULT_BUFSIZE		256
+
+MODULE_LICENSE(“Dual BSD/GPL”)
+
+int buf_init (void);
+void buf_exit (void);
+int buf_open (struct inode *inode, struct file *flip);
+int buf_release (struct inode *inode, struct file *flip);
+ssize_t buf_read (struct file *flip, char __user *ubuf, size_t count, loff_t *f_ops);
+ssize_t buf_write (struct file *flip, unsigned int cmd, unsigned long arg);
+
+module_init(buf_init);
+module_exit(buf_exit);
+
+struct BufStruct {
+	unsigned int 	InIdx;
+	unsigned int 	OutIdx;
+	unsigned short BufFull;
+	unsigned short BufEmpty;
+	unsigned int 	BufSize;
+	unsigned short	*Buffer;
+} Buffer;
+
+struct Buf_Dev {
+	unsigned short 	*ReadBuf;
+	unsigned short 	*WriteBuf;
+	struct semaphore	SemBuf;
+	unsigned short 	numWriter;
+	unsigned short 	numReader;
+	dev_t					dev;
+	struct cdev			cdev;
+} BDev;
+
+struct file_operations Buf_fops = {
+	.owner				=		THIS_MODULE,
+	.open					=		buf_open,
+	.release				=		buf_release,
+	.read					=		buf_read,
+	.write				=		buf_write,
+	.unlocked_iotcl	=		buf_ioctl,
+};
+
+int BufIn (struct BufStruct *Buf, unsigned short *Data) {
+	if (Buf->BufFull)
+		return -1;
+	Buf->BufEmpty = 0;
+	Buf->Buffer[Buf->InIdx] = *Data;
+	Buf->InIdx = (Buf->InIdx + 1) % Buf->BufSize;
+	if (Buf->InIdx == Buf->OutIdx)
+		Buf->BufFull = 1;
+	return 0;
+}
+
+int BufOut (struct BufStruct *Buf, unsigned short *Data) {
+	if (Buf->BufEmpty)
+		return -1;
+	Buf->BufFull = 0;
+	*Data = Buf->Buffer[Buf->OutIdx];
+	Buf->OutIdx = (Buf->OutIdx + 1) % Buf->BufSize;
+	if (Buf->OutIdx == Buf->InIdx)
+		But->ButEmpty = 1;
+	return 0;
+}
+
+int buf_init (void){
+	
+	Buffer = {
+		.InIdx		=	0,
+		.OutIdx		=	0,
+		.BufFull		=	0,
+		.BufEmpty	=	1,
+		.BufSize		=	DEFAULT_BUFSIZE,
+		.Buffer		=  kmalloc(sizeof(unsigned short)*DEFAULT_BUFSIZE,GFP_KERNEL)
+	};
+
+	BDev = {
+		.ReadBuf = kmalloc(sizeof(unsigned short)*READWRITE_BUFSIZE,GFP_KERNEL);
+		.WriteBuf = kmalloc(sizeof(unsigned short)*READWRITE_BUFSIZE,GFP_KERNEL);
+		.SemBuf = 0;
+		.numWriter = 0;
+		.numReader = 0;
+		.dev = ;
+		.cdev = ;
+	};
+};
+
+
