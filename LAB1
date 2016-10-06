@@ -19,6 +19,7 @@
 
 MODULE_LICENSE(“Dual BSD/GPL”)
 
+/*Prototypes***************************************************************************************/
 int buf_init (void);
 void buf_exit (void);
 int buf_open (struct inode *inode, struct file *flip);
@@ -57,6 +58,7 @@ struct file_operations Buf_fops = {
 	.unlocked_iotcl	=		buf_ioctl,
 };
 
+/*Inserer une donnee dans le buffer circulaire******************************************************/
 int BufIn (struct BufStruct *Buf, unsigned short *Data) {
 	if (Buf->BufFull)
 		return -1;
@@ -68,6 +70,7 @@ int BufIn (struct BufStruct *Buf, unsigned short *Data) {
 	return 0;
 }
 
+/*Enleve une donnee dans le buffer circulaire******************************************************/
 int BufOut (struct BufStruct *Buf, unsigned short *Data) {
 	if (Buf->BufEmpty)
 		return -1;
@@ -79,8 +82,8 @@ int BufOut (struct BufStruct *Buf, unsigned short *Data) {
 	return 0;
 }
 
-int buf_init (void){
-	
+/*Initialise des variables**************************************************************************/
+int buf_init (void) {
 	Buffer = {
 		.InIdx		=	0,
 		.OutIdx		=	0,
@@ -96,9 +99,44 @@ int buf_init (void){
 		.SemBuf = 0;
 		.numWriter = 0;
 		.numReader = 0;
-		.dev = ;
-		.cdev = ;
 	};
-};
+
+	dev = MKDEV(scull_major, scull_minor);
+	int err;
+	if (scull_major) {
+		devno = MKDEV(scull_major, scull_minor);
+	re	sult = register_chrdev_region(devno, 1, "scull");
+	}
+	else {
+		result = alloc_chrdev_region(&devno, scull_minor, 1, "scull");
+		scull_major = MAJOR(devno);
+	}
+	if (result < 0) {
+		printk(KERN_WARNING "scull: can't get major %d\n", scull_major);
+		return result;
+	}
+
+	cdev_init (&BDev.cdev, &Buf_fops);
+	BDev.cdev.owner = THIS_MODULE;
+	BDev.cdev.ops = &scull_fops;
+	err = cdev_add (&BDev.cdev, dev, 1);
+	if (err)
+		printk(KERN_NOTICE "Error %d adding scull%d", err, index);
+}
+
+/*Fonction Exit qui assure que les tampons soient detruits*****************************************/
+void buf_exit (void) {
+	free(Buffer.Buffer);
+	free(BDev.ReadBuf);
+	free(BDev.WriteBuf);
+	cdev_del (&BDev.cdev);
+}
+
+int buf_open (struct inode *inode, struct file *flip) {
 
 
+}
+
+int buf_release (struct inode *inode, struct file *flip) {
+
+}
